@@ -1,0 +1,19 @@
+{
+    "liveServer.settings.ignoreFiles": [
+        ".vscode/**",
+        "**/*.py",
+        "**/*.pyc",
+        "__pycache__/**",
+        "annotations/**",
+        "transcripts/**",
+        "*.log",
+        ".git/**"
+    ],
+    "liveServer.settings.donotShowInfoMsg": true,
+    "liveServer.settings.port": 5500,
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true
+    }
+}

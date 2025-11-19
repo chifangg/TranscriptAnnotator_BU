@@ -1,0 +1,4 @@
+annotations/*.json
+segmented/**/*.json
+transcripts/**/*.txt
+node_modules/
