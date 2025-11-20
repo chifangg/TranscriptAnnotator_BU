@@ -124,7 +124,9 @@
         const otherBottom = other.top + other.height;
 
         // Check if ranges overlap
-        return !(currentBottom <= other.top || current.top >= otherBottom);
+        return !(
+          currentBottom < other.top + 5 || current.top + 5 > otherBottom
+        );
       });
 
       if (overlapping.length === 0) {

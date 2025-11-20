@@ -35,9 +35,9 @@
     const maxIndex = Math.max(...annotation.messageIndices);
 
     if (minIndex === maxIndex) {
-      return `Message ${minIndex + 1}`;
+      return `Message ${minIndex}`;
     } else {
-      return `Messages ${minIndex + 1}-${maxIndex + 1}`;
+      return `Messages ${minIndex}-${maxIndex}`;
     }
   }
 </script>
