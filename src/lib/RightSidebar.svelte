@@ -8,6 +8,15 @@
 
   let { annotations, onDeleteAnnotation }: Props = $props();
 
+  // Sort annotations by their start index
+  let sortedAnnotations = $derived(
+    annotations.slice().sort((a, b) => {
+      const aStartIndex = Math.min(...a.messageIndices);
+      const bStartIndex = Math.min(...b.messageIndices);
+      return aStartIndex - bStartIndex;
+    })
+  );
+
   async function handleDeleteAnnotation(annotationId: number) {
     await onDeleteAnnotation(annotationId);
   }
@@ -25,7 +34,7 @@
 <div class="right-sidebar sidebar">
   <h2>Annotations</h2>
   <div class="saved-annotations">
-    {#each annotations as annotation (annotation.id)}
+    {#each sortedAnnotations as annotation (annotation.id)}
       <div class="annotation-display">
         <div class="annotation-header">
           <span class="annotation-timestamp">
@@ -76,7 +85,7 @@
       </div>
     {/each}
 
-    {#if annotations.length === 0}
+    {#if sortedAnnotations.length === 0}
       <div class="no-annotations">
         <p>No annotations yet.</p>
         <p>Select text in the transcript to create annotations.</p>

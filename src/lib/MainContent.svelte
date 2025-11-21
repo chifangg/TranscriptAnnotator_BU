@@ -2,6 +2,7 @@
   import { type Transcript, type Annotation } from "../constants.js";
   import Controllers from "./Controllers.svelte";
   import AnnotationDisplay from "./AnnotationDisplay.svelte";
+  import SegmentNav from "./SegmentNav.svelte";
   import { untrack } from "svelte";
 
   type Props = {
@@ -54,6 +55,8 @@
       }
     >
   >([]);
+  let activeSegmentIndex = $state(0);
+  let segmentPositions = $state<Array<{ top: number; height: number }>>([]);
 
   let speakerColorMap: Map<string, string> = $state(new Map());
   let speakerVisibility: Map<string, boolean> = $state(new Map());
@@ -229,11 +232,11 @@
       showAnnotationForm = true;
       annotationNote = "";
 
-      // Calculate the position relative to the transcript content
-      const transcriptContent = document.querySelector(".transcript-content");
-      if (transcriptContent) {
-        const rect = transcriptContent.getBoundingClientRect();
-        annotationFormTop = Math.max(0, event.clientY - rect.top - 250); // Offset by 250px from cursor
+      // Calculate the position relative to the annotations panel
+      const annotationsPanel = document.querySelector(".annotations-panel");
+      if (annotationsPanel) {
+        const panelRect = annotationsPanel.getBoundingClientRect();
+        annotationFormTop = Math.max(0, event.clientY - panelRect.top - 200);
       }
     }
     isSelecting = false;
@@ -333,11 +336,11 @@
         `[data-message-index="${index}"]`
       );
       if (messageElement) {
-        const transcriptContent = document.querySelector(".transcript-content");
-        if (transcriptContent) {
-          const transcriptRect = transcriptContent.getBoundingClientRect();
+        const annotationsPanel = document.querySelector(".annotations-panel");
+        if (annotationsPanel) {
+          const panelRect = annotationsPanel.getBoundingClientRect();
           const messageRect = messageElement.getBoundingClientRect();
-          annotationFormTop = Math.max(0, messageRect.top - transcriptRect.top);
+          annotationFormTop = Math.max(0, messageRect.top - panelRect.top);
         }
       }
     }
@@ -360,6 +363,136 @@
     annotationNote = "";
     annotationFormTop = 0;
   }
+
+  // Segment Navigation Functions
+  function scrollToSegment(segmentIndex: number) {
+    const transcriptContent = document.querySelector(".transcript-content");
+    if (!transcriptContent) return;
+
+    const messageGroup = transcriptContent.querySelector(
+      `.message-group[data-segment-index="${segmentIndex}"]`
+    );
+    if (messageGroup) {
+      const offset = 40; // Desired vertical offset in pixels
+      const targetPosition = (messageGroup as HTMLElement).offsetTop - offset;
+
+      transcriptContent.scrollTo({
+        top: Math.max(0, targetPosition),
+        behavior: "smooth",
+      });
+    }
+  }
+
+  function updateActiveSegment() {
+    if (!currentTranscript || !messagesContainer) return;
+
+    const viewportTop = messagesContainer.scrollTop;
+    const viewportBottom = viewportTop + messagesContainer.clientHeight;
+
+    let maxVisibleArea = 0;
+    let newActiveIndex = 0;
+
+    currentTranscript.segments.forEach((segment, index) => {
+      const messageGroup = messagesContainer!.querySelector(
+        `[data-segment-index="${index}"]`
+      ) as HTMLElement;
+      if (messageGroup) {
+        const groupTop = messageGroup.offsetTop;
+        const groupBottom = groupTop + messageGroup.offsetHeight;
+
+        // Calculate visible area of this segment
+        let visibleArea = 0;
+        if (groupBottom > viewportTop && groupTop < viewportBottom) {
+          const visibleTop = Math.max(groupTop, viewportTop);
+          const visibleBottom = Math.min(groupBottom, viewportBottom);
+          visibleArea = visibleBottom - visibleTop;
+        }
+
+        if (visibleArea > maxVisibleArea) {
+          maxVisibleArea = visibleArea;
+          newActiveIndex = index;
+        }
+      }
+    });
+
+    activeSegmentIndex = newActiveIndex;
+  }
+
+  // Effect to set up scroll listener
+  $effect(() => {
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      updateActiveSegment();
+    };
+
+    messagesContainer.addEventListener("scroll", handleScroll);
+
+    return () => {
+      messagesContainer?.removeEventListener("scroll", handleScroll);
+    };
+  });
+
+  // Segment visual bar functions
+  function getSegmentColor(index: number): string {
+    const colors = [
+      "#F3AEA6",
+      "#CAE6C1",
+      "#D6C5DE",
+      "#FAD4A2",
+      "#F8D7E8",
+      "#FFFECB",
+      "#E0D2B8",
+      "#F0F0F0",
+      "#ADC6DD",
+    ];
+    return colors[index % colors.length];
+  }
+
+  function updateSegmentPositions() {
+    if (!currentTranscript || !messagesContainer) {
+      segmentPositions = [];
+      return;
+    }
+
+    const totalHeight = messagesContainer.scrollHeight;
+    if (totalHeight === 0) {
+      segmentPositions = [];
+      return;
+    }
+
+    const newPositions = currentTranscript.segments.map((_, segmentIndex) => {
+      const messageGroup = messagesContainer!.querySelector(
+        `[data-segment-index="${segmentIndex}"]`
+      ) as HTMLElement;
+      if (!messageGroup) return { top: 0, height: 0 };
+
+      const segmentTop = (messageGroup.offsetTop / totalHeight) * 100;
+      const segmentHeight = (messageGroup.offsetHeight / totalHeight) * 100;
+
+      return { top: segmentTop, height: segmentHeight };
+    });
+
+    segmentPositions = newPositions;
+  }
+
+  function getSegmentTopPercentage(segmentIndex: number): number {
+    return segmentPositions[segmentIndex]?.top || 0;
+  }
+
+  function getSegmentHeightPercentage(segmentIndex: number): number {
+    return segmentPositions[segmentIndex]?.height || 0;
+  }
+
+  // Effect to update segment positions when content changes
+  $effect(() => {
+    if (currentTranscript && messagesContainer) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        updateSegmentPositions();
+      }, 100);
+    }
+  });
 </script>
 
 <div class="main-content">
@@ -371,10 +504,34 @@
     bind:speakerFontWeight
   />
 
+  <!-- Segment Navigation -->
+  <SegmentNav
+    {currentTranscript}
+    {activeSegmentIndex}
+    onSegmentClick={scrollToSegment}
+  />
+
   {#if currentTranscript}
     <div class="transcript-content">
       <!-- Messages Panel -->
       <div class="messages-panel">
+        <!-- Segment Visual Bar -->
+        {#if currentTranscript.segments.length > 1}
+          <div class="segment-visual-bar">
+            {#each currentTranscript.segments as segment, index}
+              {@const segmentColor = getSegmentColor(index)}
+              <div
+                class="segment-bar-section"
+                class:active={activeSegmentIndex === index}
+                style="background-color: {segmentColor}; top: {getSegmentTopPercentage(
+                  index
+                )}%; height: {getSegmentHeightPercentage(index)}%;"
+                data-segment-index={index}
+              ></div>
+            {/each}
+          </div>
+        {/if}
+
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div
           class="messages-container"
@@ -392,7 +549,7 @@
               </div>
             {/if}
 
-            <div class="message-group">
+            <div class="message-group" data-segment-index={segmentIndex}>
               {#each segment.messages as message, messageIndexInSegment}
                 {@const globalMessageIndex =
                   currentTranscript.segments
@@ -489,7 +646,7 @@
     flex: 1;
     background-color: white;
     padding: 20px;
-    overflow-y: auto;
+    /* overflow-y: auto; */
     position: relative;
     z-index: 10;
     display: flex;
@@ -499,6 +656,7 @@
   .transcript-content {
     display: flex;
     position: relative;
+    overflow-y: auto;
     flex: 1;
   }
 
@@ -506,6 +664,35 @@
     flex: 1;
     border-right: 2px solid #e0e0e0;
     position: relative;
+    height: fit-content;
+  }
+
+  /* Segment Visual Bar */
+  .segment-visual-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: white;
+    z-index: 50;
+  }
+
+  .segment-bar-section {
+    position: absolute;
+    width: 100%;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .segment-bar-section:hover {
+    width: 8px;
+    left: -1px;
+  }
+
+  .segment-bar-section.active {
+    width: 8px;
+    left: -1px;
   }
 
   .annotations-panel {
@@ -534,7 +721,7 @@
   .segment-title-marker {
     position: absolute;
     left: 0;
-    top: -12px;
+    top: -10px;
     background: white;
     padding: 0 10px;
     font-size: 12px;

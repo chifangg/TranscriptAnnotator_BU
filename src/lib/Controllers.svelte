@@ -110,7 +110,7 @@
     border-radius: 6px;
     border: 1px solid #e9ecef;
     margin-bottom: 15px;
-    border-left: 4px solid #3498db;
+    /* border-left: 4px solid #3498db; */
   }
 
   .speaker-controllers h3 {
