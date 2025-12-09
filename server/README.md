@@ -43,8 +43,6 @@ The server will start on `http://localhost:8000` with auto-reload enabled for de
 
 Once the server is running, you can access:
 - **Interactive API docs**: http://localhost:8000/docs (Swagger UI)
-- **Alternative docs**: http://localhost:8000/redoc (ReDoc)
-- **OpenAPI schema**: http://localhost:8000/openapi.json
 
 ## API Endpoints
 
@@ -70,7 +68,7 @@ The server expects the following directory structure:
 server/
 ├── app.py              # Main FastAPI application
 ├── requirements.txt    # Python dependencies
-├── transcripts/        # Raw transcript files (.txt)
+├── transcripts/        # Raw transcript files (.txt) (optional)
 ├── segmented/          # Segmented transcript data (.json)
 └── annotations/        # Saved annotations (.json)
 ```
@@ -117,36 +115,3 @@ Annotations are saved in `annotations/{transcript_name}.json` with the format:
   ]
 }
 ```
-
-## Development
-
-### Running in Development Mode
-The server runs with auto-reload enabled by default, so any changes to the code will automatically restart the server.
-
-### CORS Configuration
-The server is configured to allow CORS from all origins (`allow_origins=["*"]`) for development. In production, you should specify your frontend URL.
-
-### Adding New Endpoints
-To add new endpoints, modify `app.py` and define new FastAPI route handlers. The server will automatically include them in the API documentation.
-
-## Production Deployment
-
-For production deployment:
-
-1. Set appropriate CORS origins in the `CORSMiddleware` configuration
-2. Use a production WSGI server like Gunicorn:
-```bash
-pip install gunicorn
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:8000
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port already in use**: Change the port in `app.py` or kill the process using port 8000
-2. **Module not found**: Ensure you've activated your virtual environment and installed dependencies
-3. **File not found errors**: Check that the `transcripts/`, `segmented/`, and `annotations/` directories exist
-
-### Logs
-The server logs are displayed in the terminal where you started the application. For production, consider configuring proper logging to files.

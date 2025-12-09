@@ -564,7 +564,9 @@
                     data-speaker={message.speaker}
                     style="background-color: {getSpeakerBackgroundColor(
                       message.speaker
-                    )}; font-weight: {getSpeakerFontWeight(message.speaker)};"
+                    )}; font-weight: {getSpeakerFontWeight(message.speaker)};
+                    z-index: {segment.messages.length - messageIndexInSegment};
+                    "
                     role="button"
                     tabindex="0"
                     onclick={() => handleMessageClick(globalMessageIndex)}
@@ -753,9 +755,13 @@
 
   .message.selected {
     /* border-left: 2px solid #3498db; */
-    border-right: 2px solid #3498db;
-    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+    border-right: 4px solid #3498db;
+    transform: translateX(12px);
+    box-shadow: 0 2px 5px 2px rgba(14, 42, 61, 0.3);
   }
+  /* .selected:last-of-type {
+    border-left: 4px solid #3498db;
+  } */
 
   /* .message.annotation-highlight {
     border-right: 3px solid #3498db;
