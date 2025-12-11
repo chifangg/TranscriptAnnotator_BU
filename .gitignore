@@ -27,5 +27,7 @@ server/annotations/*.json
 server/segmented/**/*.json
 server/transcripts/**/*.txt
 server/transcripts/**/*.docx
+server/raw_segmented/**/*.json
 
 *.pyc
+*.zip
