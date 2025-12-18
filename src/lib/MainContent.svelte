@@ -577,7 +577,7 @@
                       }
                     }}
                   >
-                    <span>[{message.speaker}]</span>
+                    <span>[{message.speaker}][{globalMessageIndex}]</span>
                     {message.content}
                     {#if message.timestamp}
                       <span class="message-time">{message.timestamp}</span>

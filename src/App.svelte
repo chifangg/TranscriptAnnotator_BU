@@ -96,6 +96,12 @@
       const newAnnotation = {
         id: newId,
         messageIndices: [...selectedMessages],
+        annotated_messages: selectedMessages.map(
+          (index) =>
+            currentTranscript?.segments.flatMap((segment) => segment.messages)[
+              index
+            ]
+        ),
         label,
         description,
         timestamp: new Date().toISOString(),

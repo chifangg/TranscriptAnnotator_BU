@@ -39,6 +39,7 @@ class Annotation(BaseModel):
     label: str
     description: Optional[str] = ""
     messageIndices: List[int]
+    annotated_messages: Optional[List[TranscriptMessage]] = []
     timestamp: str
 
 
@@ -50,7 +51,8 @@ class AnnotationFile(BaseModel):
 
 # Ensure directories exist
 TRANSCRIPTS_DIR = Path("transcripts")
-ANNOTATIONS_DIR = Path("annotations")
+# ANNOTATIONS_DIR = Path("annotations")
+ANNOTATIONS_DIR = Path("annotation_offset")
 SEGMENTED_DIR = Path("segmented")
 TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
