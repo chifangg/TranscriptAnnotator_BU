@@ -13,6 +13,11 @@
     showAnnotationForm: boolean;
     onSaveAnnotation: (label: string, description: string) => Promise<void>;
     onDeleteAnnotation: (annotationId: number) => Promise<void>;
+    onEditAnnotation: (
+      annotationId: number,
+      label: string,
+      description: string
+    ) => Promise<void>;
     onSelectedMessagesChange: (messages: number[]) => void;
   };
 
@@ -24,6 +29,7 @@
     showAnnotationForm = $bindable(),
     onSaveAnnotation,
     onDeleteAnnotation,
+    onEditAnnotation,
     onSelectedMessagesChange,
   }: Props = $props();
 
@@ -594,7 +600,11 @@
       <div class="annotations-panel">
         <!-- Positioned Annotations -->
         {#each positionedAnnotations as annotation (annotation.id)}
-          <AnnotationDisplay {annotation} onDelete={onDeleteAnnotation} />
+          <AnnotationDisplay
+            {annotation}
+            onDelete={onDeleteAnnotation}
+            onEdit={onEditAnnotation}
+          />
         {/each}
 
         <!-- Selection Annotation Form -->

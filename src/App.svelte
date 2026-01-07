@@ -154,6 +154,50 @@
     }
   }
 
+  async function editAnnotation(
+    annotationId: number,
+    label: string,
+    description: string
+  ) {
+    if (!currentTranscript) return;
+
+    try {
+      // Find the existing annotation to preserve other properties
+      const existingAnnotation = annotations.find((a) => a.id === annotationId);
+      if (!existingAnnotation) {
+        console.error("Annotation not found");
+        return;
+      }
+
+      const updatedAnnotation = {
+        ...existingAnnotation,
+        label,
+        description,
+        timestamp: new Date().toISOString(),
+      };
+
+      const response = await fetch(
+        `${apiBaseUrl}/annotations/${currentTranscript.filename}/${annotationId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedAnnotation),
+        }
+      );
+
+      if (response.ok) {
+        // Update the annotation in the local state
+        annotations = annotations.map((a) =>
+          a.id === annotationId ? updatedAnnotation : a
+        );
+      }
+    } catch (error) {
+      console.error("Error editing annotation:", error);
+    }
+  }
+
   // Load transcripts on mount
   loadTranscripts();
 </script>
@@ -169,11 +213,16 @@
     bind:showAnnotationForm
     onSaveAnnotation={saveAnnotation}
     onDeleteAnnotation={deleteAnnotation}
+    onEditAnnotation={editAnnotation}
     onSelectedMessagesChange={(messages: number[]) =>
       (selectedMessages = messages)}
   />
 
-  <RightSidebar {annotations} onDeleteAnnotation={deleteAnnotation} />
+  <RightSidebar
+    {annotations}
+    onDeleteAnnotation={deleteAnnotation}
+    onEditAnnotation={editAnnotation}
+  />
 </div>
 
 <style>

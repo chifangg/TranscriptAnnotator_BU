@@ -51,8 +51,8 @@ class AnnotationFile(BaseModel):
 
 # Ensure directories exist
 TRANSCRIPTS_DIR = Path("transcripts")
-# ANNOTATIONS_DIR = Path("annotations")
-ANNOTATIONS_DIR = Path("annotation_offset")
+ANNOTATIONS_DIR = Path("annotations")
+# ANNOTATIONS_DIR = Path("annotation_offset")
 SEGMENTED_DIR = Path("segmented")
 TRANSCRIPTS_DIR.mkdir(exist_ok=True)
 ANNOTATIONS_DIR.mkdir(exist_ok=True)
@@ -309,6 +309,53 @@ async def delete_annotations(transcript_name: str):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error deleting annotations: {str(e)}"
+        )
+
+
+@app.put("/api/annotations/{transcript_name}/{annotation_id}")
+async def update_annotation_by_id(transcript_name: str, annotation_id: int, updated_annotation: Annotation):
+    """Update a specific annotation by ID"""
+    try:
+        annotation_filename = transcript_name + ".json"
+        file_path = ANNOTATIONS_DIR / annotation_filename
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Annotation file not found")
+
+        # Load existing annotations
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Find and update the annotation with the specified ID
+        annotation_found = False
+        for i, annotation in enumerate(data.get("annotations", [])):
+            if annotation.get("id") == annotation_id:
+                # Replace the entire annotation object but preserve the ID
+                updated_annotation.id = annotation_id
+                data["annotations"][i] = updated_annotation.dict()
+                annotation_found = True
+                break
+
+        if not annotation_found:
+            raise HTTPException(status_code=404, detail="Annotation not found")
+
+        # Update lastModified timestamp
+        data["lastModified"] = datetime.now().isoformat()
+
+        # Save updated annotations
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        return {
+            "message": "Annotation updated successfully",
+            "updatedId": annotation_id,
+            "annotation": updated_annotation.dict(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error updating annotation: {str(e)}"
         )
 
 
