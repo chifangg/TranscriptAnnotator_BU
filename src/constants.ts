@@ -22,4 +22,15 @@ export interface Annotation {
     label: string;
     description: string;
     timestamp: string;
+    x?: number;
+    y?: number;
+}
+
+
+export type CategoryAssignment = {
+    transcriptFile: string;
+    annotationId: number;
+  }
+export type Category = {
+    label: string; annotations: CategoryAssignment[];
 }

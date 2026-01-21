@@ -8,6 +8,7 @@
     type Segment,
     server_address,
   } from "./constants.js";
+  import AnnotationsCanvas from "./lib/AnnotationsCanvas.svelte";
 
   let transcripts = $state<Transcript[]>([]);
   let currentTranscript = $state<Transcript | null>(null);
@@ -15,6 +16,7 @@
   let selectedMessages = $state<number[]>([]);
   let isSelecting = $state(false);
   let showAnnotationForm = $state(false);
+  let mode = $state("transcript"); // "transcript" or "annotations"
 
   const apiBaseUrl = server_address;
 
@@ -203,26 +205,54 @@
 </script>
 
 <div class="container">
-  <LeftSidebar {transcripts} onTranscriptSelect={selectTranscript} />
+  {#if mode === "transcript"}
+    <div class="">
+      <!-- svelte-ignore a11y_consider_explicit_label -->
+      <button
+        class="switch-button"
+        onclick={() => {
+          mode = "annotations";
+        }}
+      >
+        Switch to Annotations Mode
+      </button>
+      <LeftSidebar {transcripts} onTranscriptSelect={selectTranscript} />
+    </div>
 
-  <MainContent
-    {currentTranscript}
-    {annotations}
-    {selectedMessages}
-    bind:isSelecting
-    bind:showAnnotationForm
-    onSaveAnnotation={saveAnnotation}
-    onDeleteAnnotation={deleteAnnotation}
-    onEditAnnotation={editAnnotation}
-    onSelectedMessagesChange={(messages: number[]) =>
-      (selectedMessages = messages)}
-  />
+    <MainContent
+      {currentTranscript}
+      {annotations}
+      {selectedMessages}
+      bind:isSelecting
+      bind:showAnnotationForm
+      onSaveAnnotation={saveAnnotation}
+      onDeleteAnnotation={deleteAnnotation}
+      onEditAnnotation={editAnnotation}
+      onSelectedMessagesChange={(messages: number[]) =>
+        (selectedMessages = messages)}
+    />
+    <RightSidebar
+      {annotations}
+      onDeleteAnnotation={deleteAnnotation}
+      onEditAnnotation={editAnnotation}
+    />
+  {:else if mode === "annotations"}
+    <!-- svelte-ignore a11y_consider_explicit_label -->
+    <div class="annotations-mode-container">
+      <button
+        class="switch-button"
+        onclick={() => {
+          mode = "transcript";
+        }}
+      >
+        Switch to Transcript Mode
+      </button>
 
-  <RightSidebar
-    {annotations}
-    onDeleteAnnotation={deleteAnnotation}
-    onEditAnnotation={editAnnotation}
-  />
+      <div class="annotations-container">
+        <AnnotationsCanvas></AnnotationsCanvas>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -231,6 +261,22 @@
     width: 100%;
     height: 100vh;
     background-color: #f5f5f5;
+  }
+  .switch-button {
+    padding: 10px;
+    margin: 10px;
+    width: fit-content;
+  }
+  .annotations-mode-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  .annotations-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    align-self: stretch;
   }
 
   :global(*) {
