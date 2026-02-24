@@ -34,7 +34,7 @@
       for (const transcriptInfo of transcriptList) {
         try {
           const contentResponse = await fetch(
-            `${apiBaseUrl}/transcripts/${transcriptInfo.filename}/segmented`
+            `${apiBaseUrl}/transcripts/${transcriptInfo.filename}/segmented`,
           );
           if (contentResponse.ok) {
             const segments = await contentResponse.json();
@@ -71,7 +71,7 @@
 
     try {
       const response = await fetch(
-        `${apiBaseUrl}/annotations/get/${currentTranscript.filename}`
+        `${apiBaseUrl}/annotations/get/${currentTranscript.filename}`,
       );
       if (response.ok) {
         const annotation_response = await response.json();
@@ -102,7 +102,7 @@
           (index) =>
             currentTranscript?.segments.flatMap((segment) => segment.messages)[
               index
-            ]
+            ],
         ),
         label,
         description,
@@ -124,7 +124,7 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify(annotationFileData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -145,7 +145,7 @@
         `${apiBaseUrl}/annotations/${currentTranscript.filename}/${annotationId}`,
         {
           method: "DELETE",
-        }
+        },
       );
 
       if (response.ok) {
@@ -159,7 +159,7 @@
   async function editAnnotation(
     annotationId: number,
     label: string,
-    description: string
+    description: string,
   ) {
     if (!currentTranscript) return;
 
@@ -186,13 +186,13 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify(updatedAnnotation),
-        }
+        },
       );
 
       if (response.ok) {
         // Update the annotation in the local state
         annotations = annotations.map((a) =>
-          a.id === annotationId ? updatedAnnotation : a
+          a.id === annotationId ? updatedAnnotation : a,
         );
       }
     } catch (error) {
@@ -206,7 +206,7 @@
 
 <div class="container">
   {#if mode === "transcript"}
-    <div class="">
+    <div style="height: 100vh; display: flex; flex-direction: column">
       <!-- svelte-ignore a11y_consider_explicit_label -->
       <button
         class="switch-button"
