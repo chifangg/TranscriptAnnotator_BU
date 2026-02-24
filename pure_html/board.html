@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Transcript Annotation Board</title>
+  <style>
+    * { box-sizing: border-box; }
+    body{
+      margin:0;
+      height:100vh;
+      display:flex;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      background:#f5f5f5;
+      overflow:hidden;
+    }
+
+    .sidebar{
+      width:280px;
+      background:#2c3e50;
+      color:#fff;
+      padding:16px;
+      overflow:auto;
+      border-right:2px solid #34495e;
+    }
+    .sidebar h2{
+      margin:0 0 12px 0;
+      font-size:16px;
+      border-bottom:2px solid #34495e;
+      padding-bottom:10px;
+    }
+    .hint{
+      font-size:12px;
+      color:rgba(255,255,255,0.8);
+      line-height:1.4;
+      margin-bottom:12px;
+    }
+    .category-list{ display:flex; flex-direction:column; gap:8px; }
+    .category-item{
+      padding:10px 10px;
+      border-radius:8px;
+      cursor:pointer;
+      background:#34495e;
+      transition:0.15s;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      user-select:none;
+    }
+    .category-item:hover{ background:#4a5f7a; }
+    .category-item.active{ background:#3498db; }
+    .category-name{ font-size:12px; font-weight:700; line-height:1.2; word-break:break-word; }
+    .badge{
+      font-size:11px;
+      padding:2px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.15);
+      flex-shrink:0;
+    }
+
+    .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+    .topbar{
+      height:54px;
+      background:#fff;
+      border-bottom:1px solid #e6e6e6;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 14px;
+      gap:10px;
+      flex-shrink:0;
+    }
+    .topbar-left{ display:flex; align-items:baseline; gap:12px; min-width:0; }
+    .title{ font-size:14px; font-weight:800; color:#2c3e50; white-space:nowrap; }
+    .subtitle{
+      font-size:12px;
+      color:#6c757d;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      max-width:60vw;
+    }
+    .topbar-actions{ display:flex; gap:8px; align-items:center; flex-shrink:0; }
+    .btn{
+      border:0;
+      border-radius:8px;
+      padding:8px 10px;
+      cursor:pointer;
+      font-size:12px;
+      user-select:none;
+    }
+    .btn-secondary{ background:#ecf0f1; color:#2c3e50; }
+    .btn-danger{ background:#ffecec; color:#c0392b; }
+
+    .board-wrap{
+      position:relative;
+      flex:1;
+      overflow:auto;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0) 0 0/20px 20px,
+        #fbfbfb;
+    }
+
+    /* bigger board area */
+    .board{
+      position:relative;
+      width:6000px;
+      height:4000px;
+      transform-origin:0 0;
+    }
+
+    .card{
+      position:absolute;
+      width:260px;
+      background:rgba(179,224,255,0.42);
+      border:1px solid #3498db;
+      border-radius:12px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.12);
+      padding:10px 10px 8px 10px;
+      cursor:grab;
+      user-select:none;
+      touch-action:none;
+    }
+    .card:active{ cursor:grabbing; }
+
+    .card-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+      margin-bottom:6px;
+      position:relative;
+    }
+    .card-title{
+      font-size:13px;
+      font-weight:800;
+      color:#043a85;
+      line-height:1.2;
+      flex:1;
+      word-break:break-word;
+      outline:none;
+    }
+
+    .card-actions{
+      display:flex;
+      gap:6px;
+      flex-shrink:0;
+      align-items:center;
+
+      opacity:0;
+      pointer-events:none;
+      transform: translateY(-2px);
+      transition: 0.12s ease;
+    }
+    .card:hover .card-actions,
+    .card:focus-within .card-actions{
+      opacity:1;
+      pointer-events:auto;
+      transform: translateY(0);
+    }
+
+    .icon-btn{
+      width:26px;
+      height:26px;
+      border-radius:8px;
+      border:0;
+      cursor:pointer;
+      background:rgba(255,255,255,0.6);
+      display:grid;
+      place-items:center;
+      color:#2c3e50;
+    }
+    .icon-btn:hover{ background:rgba(255,255,255,0.9); }
+
+    /* Toggle sections (note/quote) */
+    .toggle-wrap{
+      position:relative;
+      margin-top:6px;
+      border-radius:10px;
+      outline:none;
+      cursor:pointer;
+    }
+
+    /* small caret button (hover only) */
+    .caret-mini{
+      position:absolute;
+      top:6px;
+      right:8px;
+      width:20px;
+      height:20px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.70);
+      color:#2c3e50;
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      line-height:1;
+      cursor:pointer;
+      user-select:none;
+
+      opacity:0;
+      transform: translateY(-2px);
+      transition: 0.12s ease;
+      pointer-events:none;
+    }
+
+    .toggle-wrap:hover .caret-mini,
+    .toggle-wrap:focus-within .caret-mini{
+      opacity:1;
+      transform: translateY(0);
+      pointer-events:auto;
+    }
+
+    .card-body, .card-quote{
+      font-size:12px;
+      line-height:1.45;
+      white-space:pre-wrap;
+      word-break:break-word;
+      user-select:text;
+      cursor:text;
+      outline:none;
+      border-radius:10px;
+      padding:8px;
+      min-width:0;
+    }
+
+    .card-body{
+      color:#043a85;
+      background:rgba(255,255,255,0.35);
+      border:1px solid rgba(52,152,219,0.25);
+      min-height:28px;
+    }
+    .card-quote{
+      color:#2c3e50;
+      background:rgba(255,255,255,0.55);
+      border:1px dashed rgba(44,62,80,0.25);
+      min-height:28px;
+    }
+
+    .collapsed-one-line{
+      white-space:nowrap !important;
+      overflow:hidden !important;
+      text-overflow:ellipsis !important;
+      min-height:unset !important;
+    }
+
+    .card-meta{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:8px;
+      font-size:10px;
+      color:#6c757d;
+      font-style:italic;
+    }
+
+    .text-block{
+      position:absolute;
+      width:260px;
+      background:rgba(255,255,255,0.85);
+      border:1px solid rgba(0,0,0,0.12);
+      border-radius:12px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.10);
+      padding:10px;
+      cursor:grab;
+      user-select:none;
+      touch-action:none;
+    }
+    .text-block:active{ cursor:grabbing; }
+    .text-block .text{
+      font-size:12px;
+      color:#2c3e50;
+      line-height:1.45;
+      white-space:pre-wrap;
+      word-break:break-word;
+      user-select:text;
+      cursor:text;
+      outline:none;
+    }
+
+    /* Selection visuals */
+    .selected{
+      outline: 2px solid rgba(52,152,219,0.95);
+      box-shadow: 0 0 0 3px rgba(52,152,219,0.15), 0 8px 20px rgba(0,0,0,0.12);
+    }
+
+    .marquee{
+      position:absolute;
+      border:1px dashed rgba(52,152,219,0.95);
+      background: rgba(52,152,219,0.12);
+      pointer-events:none;
+      z-index: 9999;
+      border-radius: 8px;
+    }
+
+    .empty{ padding:18px; color:#6c757d; font-size:12px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>Categories</h2>
+    <div class="hint">for better labeling :D</div>
+    <div class="category-list" id="categoryList">
+      <div class="empty">Loading categories…</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="title">Annotation Board</div>
+        <div class="subtitle" id="subtitle">No category selected</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" id="btnAddText">+ Text block</button>
+        <button class="btn btn-secondary" id="btnSaveLayout">Save layout</button>
+        <button class="btn btn-danger" id="btnClearLocal">Clear local layout</button>
+      </div>
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+      <div class="board" id="board"></div>
+    </div>
+  </main>
+
+  <script>
+    const CONFIG = {
+      categoriesUrl: "../server/annotations/categories.json",
+      annotationsBase: "../server/annotations",
+      defaultPX_X: 120,
+      defaultPX_Y: 120,
+      cascadeStep: 28,
+      legacyScale: 400
+    };
+
+    const els = {
+      categoryList: document.getElementById("categoryList"),
+      board: document.getElementById("board"),
+      subtitle: document.getElementById("subtitle"),
+      btnAddText: document.getElementById("btnAddText"),
+      btnSaveLayout: document.getElementById("btnSaveLayout"),
+      btnClearLocal: document.getElementById("btnClearLocal"),
+      boardWrap: document.getElementById("boardWrap"),
+    };
+
+    let categories = [];
+    let activeCategory = null;
+
+    const transcriptCache = new Map();
+
+    // Selection state
+    const selection = {
+      keys: new Set(),
+      marqueeEl: null,
+      isMarquee: false,
+      marqueeStart: null,
+      isGroupDrag: false,
+      groupStart: null,
+      originalPositions: new Map()
+    };
+
+    const dragState = { el: null, startX: 0, startY: 0, originX: 0, originY: 0, pointerId: null };
+
+    function lsKeyForCategory(categoryLabel) { return `board_layout__${categoryLabel}`; }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = String(text ?? "");
+      return div.innerHTML;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+      return await res.json();
+    }
+
+    async function loadCategories() {
+      categories = await fetchJson(CONFIG.categoriesUrl);
+      renderCategoryList();
+    }
+
+    function renderCategoryList() {
+      els.categoryList.innerHTML = "";
+      if (!Array.isArray(categories) || categories.length === 0) {
+        els.categoryList.innerHTML = `<div class="empty">No categories found.</div>`;
+        return;
+      }
+
+      categories.forEach((c) => {
+        const item = document.createElement("div");
+        item.className = "category-item";
+        item.dataset.label = c.label;
+
+        const count = Array.isArray(c.annotations) ? c.annotations.length : 0;
+
+        item.innerHTML = `
+          <div class="category-name">${escapeHtml(c.label)}</div>
+          <div class="badge">${count}</div>
+        `;
+        item.addEventListener("click", () => selectCategory(c.label));
+        els.categoryList.appendChild(item);
+      });
+    }
+
+    function setActiveCategoryUI(label) {
+      document.querySelectorAll(".category-item").forEach((el) => {
+        el.classList.toggle("active", el.dataset.label === label);
+      });
+    }
+
+    async function loadTranscriptFile(transcriptFile) {
+      if (transcriptCache.has(transcriptFile)) return transcriptCache.get(transcriptFile);
+      const url = `${CONFIG.annotationsBase}/${encodeURIComponent(transcriptFile)}.json`;
+      const data = await fetchJson(url);
+      transcriptCache.set(transcriptFile, data);
+      return data;
+    }
+
+    async function selectCategory(label) {
+      activeCategory = categories.find((c) => c.label === label) || null;
+      setActiveCategoryUI(label);
+
+      els.subtitle.textContent = activeCategory
+        ? `${activeCategory.label} (${(activeCategory.annotations || []).length} annotations)`
+        : "No category selected";
+
+      clearSelection();
+      await renderBoardForActiveCategory();
+    }
+
+    function clearBoard() { els.board.innerHTML = ""; }
+
+    function loadLayoutFromLocal(categoryLabel) {
+      try {
+        const raw = localStorage.getItem(lsKeyForCategory(categoryLabel));
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+
+    function saveLayoutToLocal(categoryLabel, layout) {
+      try { localStorage.setItem(lsKeyForCategory(categoryLabel), JSON.stringify(layout)); }
+      catch (e) { console.warn("Failed to save layout:", e); }
+    }
+
+    function upsertLocalItem(categoryLabel, itemKey, partial) {
+      const layout = loadLayoutFromLocal(categoryLabel) || { items: {}, textBlocks: {} };
+      layout.items = layout.items || {};
+      layout.textBlocks = layout.textBlocks || {};
+
+      if (itemKey.startsWith("tb__")) {
+        layout.textBlocks[itemKey] = { ...(layout.textBlocks[itemKey] || {}), ...partial };
+      } else {
+        layout.items[itemKey] = { ...(layout.items[itemKey] || {}), ...partial };
+      }
+      saveLayoutToLocal(categoryLabel, layout);
+    }
+
+    function removeLocalItem(categoryLabel, itemKey) {
+      const layout = loadLayoutFromLocal(categoryLabel) || { items: {}, textBlocks: {} };
+      layout.items = layout.items || {};
+      layout.textBlocks = layout.textBlocks || {};
+      if (itemKey.startsWith("tb__")) delete layout.textBlocks[itemKey];
+      else delete layout.items[itemKey];
+      saveLayoutToLocal(categoryLabel, layout);
+    }
+
+    function toPXMaybe(value, fallbackPX) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return fallbackPX;
+      const v = Number(value);
+      if (Math.abs(v) <= 2.5) return v * CONFIG.legacyScale;
+      return v;
+    }
+
+    function isMoreThanOneLine(el) {
+      const cs = window.getComputedStyle(el);
+      const lh = parseFloat(cs.lineHeight) || 16;
+      return el.scrollHeight > lh * 1.6;
+    }
+
+    function setCollapsed(wrapperEl, contentEl, caretBtn, collapsed) {
+      if (!wrapperEl || !contentEl) return;
+      wrapperEl.dataset.collapsed = collapsed ? "1" : "0";
+      contentEl.classList.toggle("collapsed-one-line", !!collapsed);
+      if (caretBtn) caretBtn.textContent = collapsed ? "▶" : "▼";
+    }
+
+    function shouldToggleFromClick(e, contentEl) {
+      // Click on editable text should be editing, not toggling.
+      // (But caret button always toggles.)
+      const clickedEditable = (e.target === contentEl) || (e.target?.isContentEditable);
+      if (clickedEditable) return false;
+      if (e.altKey) return true;
+      return true;
+    }
+
+    function wireToggle(wrapperEl, contentEl, caretBtn, itemKey, fieldName) {
+      if (!wrapperEl || !contentEl) return;
+
+      // Click wrapper (edge/blank) toggles
+      wrapperEl.addEventListener("click", (e) => {
+        if (!activeCategory) return;
+        if (e.target?.closest(".caret-mini")) return; // caret handles itself
+        if (!shouldToggleFromClick(e, contentEl)) return;
+
+        const collapsed = wrapperEl.dataset.collapsed === "1";
+        const next = !collapsed;
+        setCollapsed(wrapperEl, contentEl, caretBtn, next);
+        upsertLocalItem(activeCategory.label, itemKey, { [fieldName]: next });
+      });
+
+      // Click caret always toggles
+      caretBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!activeCategory) return;
+        const collapsed = wrapperEl.dataset.collapsed === "1";
+        const next = !collapsed;
+        setCollapsed(wrapperEl, contentEl, caretBtn, next);
+        upsertLocalItem(activeCategory.label, itemKey, { [fieldName]: next });
+      });
+    }
+
+    function getBoardPointFromClient(clientX, clientY) {
+      const boardRect = els.board.getBoundingClientRect();
+      return { x: clientX - boardRect.left, y: clientY - boardRect.top };
+    }
+
+    function rectFromPoints(a, b) {
+      const left = Math.min(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const right = Math.max(a.x, b.x);
+      const bottom = Math.max(a.y, b.y);
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }
+
+    function getElementRectInBoard(el) {
+      const x = parseFloat(el.style.left || "0");
+      const y = parseFloat(el.style.top || "0");
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      return { left: x, top: y, right: x + w, bottom: y + h };
+    }
+
+    function rectsIntersect(a, b) {
+      return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    }
+
+    function applySelectionUI() {
+      els.board.querySelectorAll(".card, .text-block").forEach((el) => {
+        const key = el.dataset.key;
+        el.classList.toggle("selected", selection.keys.has(key));
+      });
+    }
+
+    function clearSelection() {
+      selection.keys.clear();
+      applySelectionUI();
+    }
+
+    function toggleSelectionKey(key) {
+      if (selection.keys.has(key)) selection.keys.delete(key);
+      else selection.keys.add(key);
+      applySelectionUI();
+    }
+
+    function setSingleSelection(key) {
+      selection.keys.clear();
+      selection.keys.add(key);
+      applySelectionUI();
+    }
+
+    function startMarquee(e) {
+      if (e.button !== 0) return;
+      selection.isMarquee = true;
+
+      const p = getBoardPointFromClient(e.clientX, e.clientY);
+      selection.marqueeStart = p;
+
+      if (!e.shiftKey) clearSelection();
+
+      const el = document.createElement("div");
+      el.className = "marquee";
+      el.style.left = `${p.x}px`;
+      el.style.top = `${p.y}px`;
+      el.style.width = `0px`;
+      el.style.height = `0px`;
+      els.board.appendChild(el);
+      selection.marqueeEl = el;
+    }
+
+    function updateMarquee(e) {
+      if (!selection.isMarquee || !selection.marqueeEl) return;
+      const p = getBoardPointFromClient(e.clientX, e.clientY);
+      const r = rectFromPoints(selection.marqueeStart, p);
+
+      selection.marqueeEl.style.left = `${r.left}px`;
+      selection.marqueeEl.style.top = `${r.top}px`;
+      selection.marqueeEl.style.width = `${r.width}px`;
+      selection.marqueeEl.style.height = `${r.height}px`;
+
+      const marqueeRect = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+
+      els.board.querySelectorAll(".card, .text-block").forEach((item) => {
+        const key = item.dataset.key;
+        const itemRect = getElementRectInBoard(item);
+        if (rectsIntersect(marqueeRect, itemRect)) selection.keys.add(key);
+      });
+
+      applySelectionUI();
+    }
+
+    function endMarquee() {
+      selection.isMarquee = false;
+      selection.marqueeStart = null;
+      if (selection.marqueeEl) {
+        selection.marqueeEl.remove();
+        selection.marqueeEl = null;
+      }
+    }
+
+    function startGroupDrag(e, grabbedEl) {
+      selection.isGroupDrag = true;
+      selection.groupStart = { x: e.clientX, y: e.clientY };
+      selection.originalPositions.clear();
+
+      selection.keys.forEach((key) => {
+        const el = els.board.querySelector(`[data-key="${CSS.escape(key)}"]`);
+        if (!el) return;
+        selection.originalPositions.set(key, {
+          x: parseFloat(el.style.left || "0"),
+          y: parseFloat(el.style.top || "0")
+        });
+      });
+
+      grabbedEl.setPointerCapture(e.pointerId);
+      dragState.el = grabbedEl;
+      dragState.pointerId = e.pointerId;
+
+      grabbedEl.addEventListener("pointermove", onGroupDragMove);
+      grabbedEl.addEventListener("pointerup", onGroupDragEnd);
+      grabbedEl.addEventListener("pointercancel", onGroupDragEnd);
+    }
+
+    function onGroupDragMove(e) {
+      if (!selection.isGroupDrag || e.pointerId !== dragState.pointerId) return;
+
+      const dx = e.clientX - selection.groupStart.x;
+      const dy = e.clientY - selection.groupStart.y;
+
+      selection.originalPositions.forEach((pos, key) => {
+        const el = els.board.querySelector(`[data-key="${CSS.escape(key)}"]`);
+        if (!el) return;
+        el.style.left = `${pos.x + dx}px`;
+        el.style.top  = `${pos.y + dy}px`;
+      });
+    }
+
+    function onGroupDragEnd(e) {
+      if (!selection.isGroupDrag || e.pointerId !== dragState.pointerId) return;
+
+      const grabbedEl = dragState.el;
+      try { grabbedEl.releasePointerCapture(dragState.pointerId); } catch {}
+
+      grabbedEl.removeEventListener("pointermove", onGroupDragMove);
+      grabbedEl.removeEventListener("pointerup", onGroupDragEnd);
+      grabbedEl.removeEventListener("pointercancel", onGroupDragEnd);
+
+      if (activeCategory) {
+        selection.keys.forEach((key) => {
+          const el = els.board.querySelector(`[data-key="${CSS.escape(key)}"]`);
+          if (!el) return;
+          const x = parseFloat(el.style.left || "0");
+          const y = parseFloat(el.style.top || "0");
+          upsertLocalItem(activeCategory.label, key, { x, y });
+        });
+      }
+
+      selection.isGroupDrag = false;
+      selection.groupStart = null;
+      selection.originalPositions.clear();
+
+      dragState.el = null;
+      dragState.pointerId = null;
+    }
+
+    function startSingleDrag(e, el) {
+      el.setPointerCapture(e.pointerId);
+      dragState.el = el;
+      dragState.pointerId = e.pointerId;
+      dragState.startX = e.clientX;
+      dragState.startY = e.clientY;
+      dragState.originX = parseFloat(el.style.left || "0");
+      dragState.originY = parseFloat(el.style.top || "0");
+
+      el.addEventListener("pointermove", onSingleDragMove);
+      el.addEventListener("pointerup", onSingleDragEnd);
+      el.addEventListener("pointercancel", onSingleDragEnd);
+    }
+
+    function onSingleDragMove(e) {
+      if (!dragState.el || e.pointerId !== dragState.pointerId) return;
+
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+
+      dragState.el.style.left = `${dragState.originX + dx}px`;
+      dragState.el.style.top  = `${dragState.originY + dy}px`;
+    }
+
+    function onSingleDragEnd(e) {
+      if (!dragState.el || e.pointerId !== dragState.pointerId) return;
+
+      const el = dragState.el;
+      try { el.releasePointerCapture(dragState.pointerId); } catch {}
+
+      el.removeEventListener("pointermove", onSingleDragMove);
+      el.removeEventListener("pointerup", onSingleDragEnd);
+      el.removeEventListener("pointercancel", onSingleDragEnd);
+
+      if (activeCategory) {
+        const key = el.dataset.key;
+        const x = parseFloat(el.style.left || "0");
+        const y = parseFloat(el.style.top || "0");
+        upsertLocalItem(activeCategory.label, key, { x, y });
+      }
+
+      dragState.el = null;
+      dragState.pointerId = null;
+    }
+
+    async function renderBoardForActiveCategory() {
+      clearBoard();
+      if (!activeCategory) return;
+
+      const assignments = Array.isArray(activeCategory.annotations) ? activeCategory.annotations : [];
+      if (assignments.length === 0) {
+        els.board.innerHTML = `<div class="empty">This category has no annotations.</div>`;
+        return;
+      }
+
+      const layout = loadLayoutFromLocal(activeCategory.label) || { items: {}, textBlocks: {} };
+      const itemLayout = layout.items || {};
+      const textLayout = layout.textBlocks || {};
+
+      const byTranscript = new Map();
+      for (const a of assignments) {
+        if (!a || !a.transcriptFile) continue;
+        if (!byTranscript.has(a.transcriptFile)) byTranscript.set(a.transcriptFile, []);
+        byTranscript.get(a.transcriptFile).push(a.annotationId);
+      }
+
+      const transcriptNames = Array.from(byTranscript.keys());
+      const transcriptDataList = await Promise.all(
+        transcriptNames.map(async (name) => {
+          try { return await loadTranscriptFile(name); }
+          catch (e) { console.warn("Missing transcript file:", name, e); return null; }
+        })
+      );
+
+      let fallbackIndex = 0;
+
+      transcriptDataList.forEach((td) => {
+        if (!td || !td.transcriptFile || !Array.isArray(td.annotations)) return;
+
+        const needIds = new Set(byTranscript.get(td.transcriptFile) || []);
+        const anns = td.annotations.filter((ann) => needIds.has(ann.id));
+
+        anns.forEach((ann) => {
+          const itemKey = `${td.transcriptFile}__${ann.id}`;
+          const saved = itemLayout[itemKey];
+
+          const defaultX = CONFIG.defaultPX_X + fallbackIndex * CONFIG.cascadeStep;
+          const defaultY = CONFIG.defaultPX_Y + fallbackIndex * CONFIG.cascadeStep;
+
+          const xPX = toPXMaybe(saved?.x ?? ann.x, defaultX);
+          const yPX = toPXMaybe(saved?.y ?? ann.y, defaultY);
+
+          const card = createAnnotationCard(td.transcriptFile, ann, itemKey);
+          card.style.left = `${xPX}px`;
+          card.style.top  = `${yPX}px`;
+
+          if (typeof saved?.title === "string") card.querySelector(".card-title").textContent = saved.title;
+
+          const bodyEl = card.querySelector(".card-body");
+          if (bodyEl && typeof saved?.desc === "string") bodyEl.textContent = saved.desc;
+
+          const quoteEl = card.querySelector(".card-quote");
+          if (quoteEl && typeof saved?.quote === "string") quoteEl.textContent = saved.quote;
+
+          const bodyWrap = card.querySelector('[data-wrap="body"]');
+          const bodyCaret = card.querySelector('[data-caret="body"]');
+          const quoteWrap = card.querySelector('[data-wrap="quote"]');
+          const quoteCaret = card.querySelector('[data-caret="quote"]');
+
+          if (bodyWrap && bodyEl && saved?.bodyCollapsed !== undefined) {
+            setCollapsed(bodyWrap, bodyEl, bodyCaret, !!saved.bodyCollapsed);
+          }
+          if (quoteWrap && quoteEl && saved?.quoteCollapsed !== undefined) {
+            setCollapsed(quoteWrap, quoteEl, quoteCaret, !!saved.quoteCollapsed);
+          }
+
+          els.board.appendChild(card);
+          fallbackIndex++;
+        });
+      });
+
+      // restore text blocks
+      Object.entries(textLayout).forEach(([tbKey, tb]) => {
+        const el = createTextBlock(tbKey, tb?.text ?? "Type here…");
+        el.style.left = `${toPXMaybe(tb?.x, 120)}px`;
+        el.style.top  = `${toPXMaybe(tb?.y, 120)}px`;
+        els.board.appendChild(el);
+      });
+
+      if (!els.board.querySelector(".card") && !els.board.querySelector(".text-block")) {
+        els.board.innerHTML = `<div class="empty">No matching annotation cards could be loaded. (Maybe missing transcript json files.)</div>`;
+      }
+
+      // default collapse after paint (only if no saved state)
+      requestAnimationFrame(() => {
+        const currentLayout = loadLayoutFromLocal(activeCategory.label) || { items: {}, textBlocks: {} };
+        const items = currentLayout.items || {};
+
+        els.board.querySelectorAll(".card").forEach((card) => {
+          const itemKey = card.dataset.key;
+          const saved = items[itemKey] || {};
+
+          const bodyWrap = card.querySelector('[data-wrap="body"]');
+          const bodyEl = card.querySelector(".card-body");
+          const bodyCaret = card.querySelector('[data-caret="body"]');
+
+          const quoteWrap = card.querySelector('[data-wrap="quote"]');
+          const quoteEl = card.querySelector(".card-quote");
+          const quoteCaret = card.querySelector('[data-caret="quote"]');
+
+          if (bodyWrap && bodyEl && saved.bodyCollapsed === undefined) {
+            const shouldCollapse = isMoreThanOneLine(bodyEl);
+            setCollapsed(bodyWrap, bodyEl, bodyCaret, shouldCollapse);
+            upsertLocalItem(activeCategory.label, itemKey, { bodyCollapsed: shouldCollapse });
+          }
+
+          if (quoteWrap && quoteEl && saved.quoteCollapsed === undefined) {
+            setCollapsed(quoteWrap, quoteEl, quoteCaret, true);
+            upsertLocalItem(activeCategory.label, itemKey, { quoteCollapsed: true });
+          }
+        });
+      });
+    }
+
+    function createAnnotationCard(transcriptFile, ann, itemKey) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.dataset.key = itemKey;
+
+      const ts = ann?.annotated_messages?.[0]?.timestamp || ann?.timestamp || "";
+      const rawQuote = (ann?.annotated_messages?.[0]?.content ?? "");
+      const rawDesc = (ann?.description ?? "");
+      const hasDesc = String(rawDesc).trim().length > 0;
+      const hasQuote = String(rawQuote).trim().length > 0;
+
+      const actionsHtml = `
+        <div class="card-actions">
+          <button class="icon-btn" title="Delete" data-action="del">🗑</button>
+        </div>
+      `;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <div class="card-title" contenteditable="true" spellcheck="false">${escapeHtml(ann?.label ?? "(no label)")}</div>
+          ${actionsHtml}
+        </div>
+
+        ${hasDesc ? `
+          <div class="toggle-wrap" data-wrap="body" data-collapsed="0" title="Click edge/blank to toggle • Use caret to expand/collapse">
+            <button class="caret-mini" type="button" data-caret="body" aria-label="Toggle note">▼</button>
+            <div class="card-body" contenteditable="true" spellcheck="false">${escapeHtml(rawDesc)}</div>
+          </div>
+        ` : ``}
+
+        ${hasQuote ? `
+          <div class="toggle-wrap" data-wrap="quote" data-collapsed="0" title="Click edge/blank to toggle • Use caret to expand/collapse">
+            <button class="caret-mini" type="button" data-caret="quote" aria-label="Toggle quote">▼</button>
+            <div class="card-quote" contenteditable="true" spellcheck="false">${escapeHtml(rawQuote)}</div>
+          </div>
+        ` : ``}
+
+        <div class="card-meta">
+          <div class="meta-left">${escapeHtml(transcriptFile)} • ${escapeHtml(ts)}</div>
+        </div>
+      `;
+
+      // Selection + drag start
+      card.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+
+        const isEditing = e.target?.isContentEditable;
+        const isButton = e.target?.closest("button");
+        if (isButton) return;
+
+        const key = card.dataset.key;
+
+        if (isEditing) {
+          if (e.shiftKey) toggleSelectionKey(key);
+          return;
+        }
+
+        if (e.shiftKey) toggleSelectionKey(key);
+        else if (!selection.keys.has(key)) setSingleSelection(key);
+
+        if (selection.keys.size >= 2) startGroupDrag(e, card);
+        else startSingleDrag(e, card);
+      });
+
+      // save edits
+      const titleEl = card.querySelector(".card-title");
+      const descEl = card.querySelector(".card-body");
+      const quoteEl = card.querySelector(".card-quote");
+
+      const saveEdits = () => {
+        if (!activeCategory) return;
+        upsertLocalItem(activeCategory.label, itemKey, {
+          title: titleEl?.textContent ?? "",
+          desc: descEl?.textContent ?? "",
+          quote: quoteEl?.textContent ?? "",
+        });
+      };
+
+      titleEl?.addEventListener("input", saveEdits);
+      descEl?.addEventListener("input", saveEdits);
+      quoteEl?.addEventListener("input", saveEdits);
+
+      // toggle wiring
+      const bodyWrap = card.querySelector('[data-wrap="body"]');
+      const bodyCaret = card.querySelector('[data-caret="body"]');
+      if (bodyWrap && descEl) wireToggle(bodyWrap, descEl, bodyCaret, itemKey, "bodyCollapsed");
+
+      const quoteWrap = card.querySelector('[data-wrap="quote"]');
+      const quoteCaret = card.querySelector('[data-caret="quote"]');
+      if (quoteWrap && quoteEl) wireToggle(quoteWrap, quoteEl, quoteCaret, itemKey, "quoteCollapsed");
+
+      // delete
+      card.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        if (btn.dataset.action === "del") {
+          if (!activeCategory) return;
+          removeLocalItem(activeCategory.label, itemKey);
+          selection.keys.delete(itemKey);
+          applySelectionUI();
+          card.remove();
+        }
+      });
+
+      return card;
+    }
+
+    function createTextBlock(tbKey, initialText) {
+      const block = document.createElement("div");
+      block.className = "text-block";
+      block.dataset.key = tbKey;
+
+      block.innerHTML = `
+        <div class="card-header" style="margin-bottom:8px;">
+          <div style="font-weight:800;font-size:12px;color:#2c3e50;">Label</div>
+          <div class="card-actions" style="opacity:1; pointer-events:auto; transform:none;">
+            <button class="icon-btn" title="Delete" data-action="del">🗑</button>
+          </div>
+        </div>
+        <div class="text" contenteditable="true" spellcheck="false">${escapeHtml(initialText)}</div>
+      `;
+
+      block.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+
+        const isEditing = e.target?.isContentEditable;
+        const isButton = e.target?.closest("button");
+        if (isButton) return;
+
+        const key = block.dataset.key;
+
+        if (isEditing) {
+          if (e.shiftKey) toggleSelectionKey(key);
+          return;
+        }
+
+        if (e.shiftKey) toggleSelectionKey(key);
+        else if (!selection.keys.has(key)) setSingleSelection(key);
+
+        if (selection.keys.size >= 2) startGroupDrag(e, block);
+        else startSingleDrag(e, block);
+      });
+
+      const textEl = block.querySelector(".text");
+      textEl.addEventListener("input", () => {
+        if (!activeCategory) return;
+        upsertLocalItem(activeCategory.label, tbKey, { text: textEl.textContent ?? "" });
+      });
+
+      block.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        if (btn.dataset.action === "del") {
+          if (!activeCategory) return;
+          removeLocalItem(activeCategory.label, tbKey);
+          selection.keys.delete(tbKey);
+          applySelectionUI();
+          block.remove();
+        }
+      });
+
+      return block;
+    }
+
+    function clearLocalLayout() {
+      if (!activeCategory) return;
+      localStorage.removeItem(lsKeyForCategory(activeCategory.label));
+      clearSelection();
+      renderBoardForActiveCategory();
+    }
+
+    function addTextBlock() {
+      if (!activeCategory) { alert("Select a category first."); return; }
+      const tbKey = `tb__${Date.now()}`;
+      const block = createTextBlock(tbKey, "Type here…");
+      const x = els.boardWrap.scrollLeft + 120;
+      const y = els.boardWrap.scrollTop + 120;
+      block.style.left = `${x}px`;
+      block.style.top  = `${y}px`;
+      els.board.appendChild(block);
+      upsertLocalItem(activeCategory.label, tbKey, { x, y, text: "Type here…" });
+    }
+
+    function saveLayoutNow() {
+      if (!activeCategory) { alert("Select a category first."); return; }
+
+      const layout = loadLayoutFromLocal(activeCategory.label) || { items: {}, textBlocks: {} };
+      layout.items = layout.items || {};
+      layout.textBlocks = layout.textBlocks || {};
+
+      els.board.querySelectorAll(".card").forEach((card) => {
+        const key = card.dataset.key;
+        const x = parseFloat(card.style.left || "0");
+        const y = parseFloat(card.style.top || "0");
+        const title = card.querySelector(".card-title")?.textContent ?? "";
+        const desc = card.querySelector(".card-body")?.textContent ?? "";
+        const quote = card.querySelector(".card-quote")?.textContent ?? "";
+
+        const bodyWrap = card.querySelector('[data-wrap="body"]');
+        const quoteWrap = card.querySelector('[data-wrap="quote"]');
+
+        layout.items[key] = {
+          ...(layout.items[key] || {}),
+          x, y, title, desc, quote,
+          bodyCollapsed: bodyWrap ? (bodyWrap.dataset.collapsed === "1") : undefined,
+          quoteCollapsed: quoteWrap ? (quoteWrap.dataset.collapsed === "1") : undefined,
+        };
+      });
+
+      els.board.querySelectorAll(".text-block").forEach((tb) => {
+        const key = tb.dataset.key;
+        const x = parseFloat(tb.style.left || "0");
+        const y = parseFloat(tb.style.top || "0");
+        const text = tb.querySelector(".text")?.textContent ?? "";
+        layout.textBlocks[key] = { ...(layout.textBlocks[key] || {}), x, y, text };
+      });
+
+      saveLayoutToLocal(activeCategory.label, layout);
+
+      const old = els.btnSaveLayout.textContent;
+      els.btnSaveLayout.textContent = "Saved!";
+      setTimeout(() => (els.btnSaveLayout.textContent = old), 900);
+    }
+
+    // ---- Marquee selection on empty board ----
+    els.board.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+
+      const onItem = e.target.closest(".card, .text-block");
+      const onEditable = e.target?.isContentEditable;
+      const onButton = e.target?.closest("button");
+
+      if (onButton || onEditable) return;
+      if (onItem) return;
+
+      startMarquee(e);
+      els.board.setPointerCapture(e.pointerId);
+
+      const move = (ev) => updateMarquee(ev);
+      const up = (ev) => {
+        try { els.board.releasePointerCapture(ev.pointerId); } catch {}
+        els.board.removeEventListener("pointermove", move);
+        els.board.removeEventListener("pointerup", up);
+        els.board.removeEventListener("pointercancel", up);
+        endMarquee();
+      };
+
+      els.board.addEventListener("pointermove", move);
+      els.board.addEventListener("pointerup", up);
+      els.board.addEventListener("pointercancel", up);
+    });
+
+    // click empty to clear selection
+    els.board.addEventListener("click", (e) => {
+      const onItem = e.target.closest(".card, .text-block");
+      const onButton = e.target.closest("button");
+      if (onButton) return;
+      if (!onItem && !e.shiftKey) clearSelection();
+    });
+
+    // UI events
+    els.btnAddText.addEventListener("click", addTextBlock);
+    els.btnSaveLayout.addEventListener("click", saveLayoutNow);
+    els.btnClearLocal.addEventListener("click", clearLocalLayout);
+
+    // boot
+    (async function main() {
+      try {
+        await loadCategories();
+        if (categories.length > 0) await selectCategory(categories[0].label);
+      } catch (e) {
+        console.error(e);
+        els.categoryList.innerHTML = `<div class="empty">Failed to load categories. Check paths and server.</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1841,7 +1841,7 @@
                 try {
                     const response = await fetch(`${this.apiBaseUrl}/annotations/${this.currentTranscript.filename}/${annotationId}`, {
                         method: 'DELETE',
-                    });
+                    }); 
 
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
