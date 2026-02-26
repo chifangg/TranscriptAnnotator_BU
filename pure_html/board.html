@@ -102,7 +102,6 @@
         #fbfbfb;
     }
 
-    /* bigger board area */
     .board{
       position:relative;
       width:6000px;
@@ -173,7 +172,6 @@
     }
     .icon-btn:hover{ background:rgba(255,255,255,0.9); }
 
-    /* Toggle sections (note/quote) */
     .toggle-wrap{
       position:relative;
       margin-top:6px;
@@ -182,7 +180,6 @@
       cursor:pointer;
     }
 
-    /* small caret button (hover only) */
     .caret-mini{
       position:absolute;
       top:6px;
@@ -254,6 +251,31 @@
       font-size:10px;
       color:#6c757d;
       font-style:italic;
+      align-items:flex-end;
+    }
+
+    .meta-right{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      flex-shrink:0;
+    }
+    .tag-select{
+      font-style:normal;
+      font-size:10px;
+      line-height:1;
+      padding:2px 6px;
+      height:18px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.14);
+      background: rgba(255,255,255,0.75);
+      color:#2c3e50;
+      outline:none;
+      cursor:pointer;
+    }
+    .tag-select:focus{
+      border-color: rgba(52,152,219,0.55);
+      box-shadow: 0 0 0 2px rgba(52,152,219,0.12);
     }
 
     .text-block{
@@ -280,7 +302,6 @@
       outline:none;
     }
 
-    /* Selection visuals */
     .selected{
       outline: 2px solid rgba(52,152,219,0.95);
       box-shadow: 0 0 0 3px rgba(52,152,219,0.15), 0 8px 20px rgba(0,0,0,0.12);
@@ -329,6 +350,11 @@
     const CONFIG = {
       categoriesUrl: "../server/annotations/categories.json",
       annotationsBase: "../server/annotations",
+
+
+      segmentedBase: "../server/segmented",
+      segmentFiles: [0,1,2,3,4],
+
       defaultPX_X: 120,
       defaultPX_Y: 120,
       cascadeStep: 28,
@@ -349,6 +375,121 @@
     let activeCategory = null;
 
     const transcriptCache = new Map();
+
+
+    const segmentCache = new Map();
+
+
+    const ORIGINAL_TO_PREF = {
+      // Male
+      Ian: "Cars",
+      Sebastian: "Cars",
+      Ezekiel: "Cars",
+      Ederson: "Cars",
+      Chris: "Cars",
+      Advait: "Cars",
+      Malik: "Cars",
+      Crosby: "Movies",
+      Jian: "Movies",
+      Hailey: "Movies",
+      Jacob: "Movies",
+      Atharva: "Movies",
+      Shay: "Movies",
+      Ronny: "Movies",
+      Jaylon: "Movies",
+      // Female
+      Sage: "Cars",
+      Shasha: "Cars",
+      Sarah: "Cars",
+      Alex: "Cars",
+      Esther: "Cars",
+      Maria: "Movies",
+      Ina: "Movies",
+      Zoe: "Movies",
+    };
+
+    const ORIGINAL_TO_ANON = {
+      Esther: "Maya",
+      Malik: "Oliver",
+      Jaylon: "Serena",
+      Ronny: "Devin",
+      Chris: "Lina",
+      Zoe: "Jasper",
+      Advait: "Naomi",
+      Shay: "Theo",
+      Alex: "Carmen",
+      Atharva: "Felix",
+      Jacob: "Aria",
+      Ederson: "Marcus",
+      Ina: "Tessa",
+      Sebastian: "Gabriel",
+      Ian: "Rhea",
+      Maria: "Daniel",
+      Jian: "Ivy",
+      Sarah: "Victor",
+      Crosby: "Elinor",
+      Sage: "Nolan",
+    };
+
+    function prefToTag1(pref) {
+      if (pref === "Movies") return "M";
+      if (pref === "Cars") return "C";
+      return "-";
+    }
+
+
+    function numToRoman(n){
+      const map = {1:"I",2:"II",3:"III",4:"IV"};
+      return map[n] || "-";
+    }
+
+    function getAnchorMessageIndex(ann){
+      const arr = ann?.messageIndices;
+      if (Array.isArray(arr) && arr.length > 0) {
+
+        const nums = arr.map(Number).filter(Number.isFinite);
+        if (nums.length) return Math.min(...nums);
+      }
+      return null;
+    }
+
+
+    function getSegmentKForMessageIndex(transcriptFile, messageIndex){
+      const ranges = segmentCache.get(transcriptFile);
+      if (!ranges || messageIndex === null) return null;
+
+      for (const r of ranges) {
+        if (Number.isFinite(r.start) && Number.isFinite(r.end)) {
+          if (messageIndex >= r.start && messageIndex <= r.end) return r.k;
+        }
+      }
+      return null;
+    }
+
+    function getTag2FromAnnotationBySegment(transcriptFile, ann){
+      const mi = getAnchorMessageIndex(ann);
+      const k = getSegmentKForMessageIndex(transcriptFile, mi);
+
+      // k=0 is Introduction -> '-'
+      if (k === 1 || k === 2 || k === 3 || k === 4) return numToRoman(k);
+      return "-";
+    }
+
+    // Tag1 preset by transcript file; Tag2 preset by segment mapping
+    function getPresetFor(transcriptFile, ann) {
+      const tf = String(transcriptFile || "").trim();
+      let tag1 = "-";
+      if (tf) {
+        for (const [orig, anon] of Object.entries(ORIGINAL_TO_ANON)) {
+          if (anon === tf) {
+            tag1 = prefToTag1(ORIGINAL_TO_PREF[orig]);
+            break;
+          }
+        }
+      }
+      const tag2 = getTag2FromAnnotationBySegment(tf, ann);
+      return { tag1, tag2 };
+    }
 
     // Selection state
     const selection = {
@@ -417,6 +558,36 @@
       const data = await fetchJson(url);
       transcriptCache.set(transcriptFile, data);
       return data;
+    }
+
+    async function loadSegmentRanges(transcriptFile){
+      const tf = String(transcriptFile || "").trim();
+      if (!tf) return [];
+      if (segmentCache.has(tf)) return segmentCache.get(tf);
+
+      const ranges = [];
+      await Promise.all(CONFIG.segmentFiles.map(async (k) => {
+        const url = `${CONFIG.segmentedBase}/${encodeURIComponent(tf)}/${k}.json`;
+        try{
+          const data = await fetchJson(url);
+          const start = Number(data?.start_index);
+          const end = Number(data?.end_index);
+          ranges.push({
+            k,
+            start: Number.isFinite(start) ? start : null,
+            end: Number.isFinite(end) ? end : null,
+            title: data?.title ?? ""
+          });
+        } catch(e){
+          // if missing, just skip. (but warn so you can see path issues)
+          console.warn("Missing segmented file:", url, e);
+        }
+      }));
+
+      // sort by k asc (0..4)
+      ranges.sort((a,b) => a.k - b.k);
+      segmentCache.set(tf, ranges);
+      return ranges;
     }
 
     async function selectCategory(label) {
@@ -489,8 +660,6 @@
     }
 
     function shouldToggleFromClick(e, contentEl) {
-      // Click on editable text should be editing, not toggling.
-      // (But caret button always toggles.)
       const clickedEditable = (e.target === contentEl) || (e.target?.isContentEditable);
       if (clickedEditable) return false;
       if (e.altKey) return true;
@@ -500,10 +669,9 @@
     function wireToggle(wrapperEl, contentEl, caretBtn, itemKey, fieldName) {
       if (!wrapperEl || !contentEl) return;
 
-      // Click wrapper (edge/blank) toggles
       wrapperEl.addEventListener("click", (e) => {
         if (!activeCategory) return;
-        if (e.target?.closest(".caret-mini")) return; // caret handles itself
+        if (e.target?.closest(".caret-mini")) return;
         if (!shouldToggleFromClick(e, contentEl)) return;
 
         const collapsed = wrapperEl.dataset.collapsed === "1";
@@ -512,7 +680,6 @@
         upsertLocalItem(activeCategory.label, itemKey, { [fieldName]: next });
       });
 
-      // Click caret always toggles
       caretBtn?.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -754,6 +921,10 @@
       }
 
       const transcriptNames = Array.from(byTranscript.keys());
+
+
+      await Promise.all(transcriptNames.map((name) => loadSegmentRanges(name)));
+
       const transcriptDataList = await Promise.all(
         transcriptNames.map(async (name) => {
           try { return await loadTranscriptFile(name); }
@@ -779,7 +950,7 @@
           const xPX = toPXMaybe(saved?.x ?? ann.x, defaultX);
           const yPX = toPXMaybe(saved?.y ?? ann.y, defaultY);
 
-          const card = createAnnotationCard(td.transcriptFile, ann, itemKey);
+          const card = createAnnotationCard(td.transcriptFile, ann, itemKey, saved);
           card.style.left = `${xPX}px`;
           card.style.top  = `${yPX}px`;
 
@@ -808,7 +979,6 @@
         });
       });
 
-      // restore text blocks
       Object.entries(textLayout).forEach(([tbKey, tb]) => {
         const el = createTextBlock(tbKey, tb?.text ?? "Type here…");
         el.style.left = `${toPXMaybe(tb?.x, 120)}px`;
@@ -820,7 +990,6 @@
         els.board.innerHTML = `<div class="empty">No matching annotation cards could be loaded. (Maybe missing transcript json files.)</div>`;
       }
 
-      // default collapse after paint (only if no saved state)
       requestAnimationFrame(() => {
         const currentLayout = loadLayoutFromLocal(activeCategory.label) || { items: {}, textBlocks: {} };
         const items = currentLayout.items || {};
@@ -851,7 +1020,7 @@
       });
     }
 
-    function createAnnotationCard(transcriptFile, ann, itemKey) {
+    function createAnnotationCard(transcriptFile, ann, itemKey, savedLayout) {
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.key = itemKey;
@@ -890,10 +1059,48 @@
 
         <div class="card-meta">
           <div class="meta-left">${escapeHtml(transcriptFile)} • ${escapeHtml(ts)}</div>
+
+          <div class="meta-right">
+            <select class="tag-select" data-tag="tag1" title="Tag 1">
+              <option value="-">-</option>
+              <option value="M">M</option>
+              <option value="C">C</option>
+            </select>
+
+            <select class="tag-select" data-tag="tag2" title="Tag 2">
+              <option value="-">-</option>
+              <option value="I">I</option>
+              <option value="II">II</option>
+              <option value="III">III</option>
+              <option value="IV">IV</option>
+            </select>
+          </div>
         </div>
       `;
 
-      // Selection + drag start
+      // apply preset defaults BUT do not override saved layout
+      const tag1Sel = card.querySelector('[data-tag="tag1"]');
+      const tag2Sel = card.querySelector('[data-tag="tag2"]');
+
+      const preset = getPresetFor(transcriptFile, ann);
+
+      const savedTag1 = savedLayout?.tag1;
+        const savedTag2 = savedLayout?.tag2;
+
+        const hasSavedTag1 = (typeof savedTag1 === "string" && savedTag1 !== "-");
+        const hasSavedTag2 = (typeof savedTag2 === "string" && savedTag2 !== "-");
+
+        if (tag1Sel) tag1Sel.value = (hasSavedTag1 ? savedTag1 : (preset.tag1 || "-"));
+        if (tag2Sel) tag2Sel.value = (hasSavedTag2 ? savedTag2 : (preset.tag2 || "-"));
+
+        if (activeCategory && !hasSavedTag2 && preset.tag2 && preset.tag2 !== "-") {
+        upsertLocalItem(activeCategory.label, itemKey, { tag2: preset.tag2 });
+        }
+        if (activeCategory && !hasSavedTag1 && preset.tag1 && preset.tag1 !== "-") {
+        upsertLocalItem(activeCategory.label, itemKey, { tag1: preset.tag1 });
+        }
+
+      // Selection 
       card.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
 
@@ -926,12 +1133,17 @@
           title: titleEl?.textContent ?? "",
           desc: descEl?.textContent ?? "",
           quote: quoteEl?.textContent ?? "",
+          tag1: tag1Sel?.value ?? "-",
+          tag2: tag2Sel?.value ?? "-",
         });
       };
 
       titleEl?.addEventListener("input", saveEdits);
       descEl?.addEventListener("input", saveEdits);
       quoteEl?.addEventListener("input", saveEdits);
+
+      tag1Sel?.addEventListener("change", saveEdits);
+      tag2Sel?.addEventListener("change", saveEdits);
 
       // toggle wiring
       const bodyWrap = card.querySelector('[data-wrap="body"]');
@@ -1052,9 +1264,13 @@
         const bodyWrap = card.querySelector('[data-wrap="body"]');
         const quoteWrap = card.querySelector('[data-wrap="quote"]');
 
+        const tag1 = card.querySelector('[data-tag="tag1"]')?.value ?? "-";
+        const tag2 = card.querySelector('[data-tag="tag2"]')?.value ?? "-";
+
         layout.items[key] = {
           ...(layout.items[key] || {}),
           x, y, title, desc, quote,
+          tag1, tag2,
           bodyCollapsed: bodyWrap ? (bodyWrap.dataset.collapsed === "1") : undefined,
           quoteCollapsed: quoteWrap ? (quoteWrap.dataset.collapsed === "1") : undefined,
         };
@@ -1116,6 +1332,14 @@
     els.btnSaveLayout.addEventListener("click", saveLayoutNow);
     els.btnClearLocal.addEventListener("click", clearLocalLayout);
 
+    (async function debugProbeAll(){
+  const tf = "Aria";
+  for (const k of [0,1,2,3,4]) {
+    const url = `../server/segmented/${tf}/${k}.json`;
+    const res = await fetch(url, { cache:"no-store" });
+    console.log("[PROBE]", k, res.status, url);
+  }
+})();
     // boot
     (async function main() {
       try {
