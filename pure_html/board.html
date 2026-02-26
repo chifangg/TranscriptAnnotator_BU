@@ -302,6 +302,75 @@
       outline:none;
     }
 
+    .text-block.tb-yellow { background: rgba(255, 249, 196, 0.92); }
+    .text-block.tb-pink   { background: rgba(255, 224, 235, 0.92); }
+    .text-block.tb-blue   { background: rgba(220, 238, 255, 0.92); }
+    .text-block.tb-green  { background: rgba(221, 255, 228, 0.92); }
+
+        /* ---- Text block color dots ---- */
+    .tb-colorbar{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    padding:2px 6px;
+    border-radius:999px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(0,0,0,0.10);
+    }
+
+    .tb-dot{
+    width:12px;
+    height:12px;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,0.18);
+    cursor:pointer;
+    display:inline-block;
+    position:relative;
+    }
+    .tb-dot:hover{ transform: translateY(-1px); }
+
+    .tb-dot.active{
+    outline: 2px solid rgba(52,152,219,0.85);
+    outline-offset: 1px;
+    }
+
+    /* dot colors */
+    .tb-dot[data-color=""]{ background: rgba(245,245,245,0.9); } /* default */
+    .tb-dot[data-color="tb-yellow"]{ background: rgba(255, 244, 170, 0.95); }
+    .tb-dot[data-color="tb-pink"]{ background: rgba(255, 200, 220, 0.95); }
+    .tb-dot[data-color="tb-blue"]{ background: rgba(198, 227, 255, 0.95); }
+    .tb-dot[data-color="tb-green"]{ background: rgba(200, 255, 214, 0.95); }
+
+    /* ---- Text block: hover-only actions (color dots + trash) ---- */
+    .text-block .tb-actions{
+    display:flex;
+    gap:8px;
+    align-items:center;
+
+    opacity:0;
+    pointer-events:none;
+    transform: translateY(-2px);
+    transition: 0.12s ease;
+    }
+
+    /* show actions when hover, selected, or focus within (editing) */
+    .text-block:hover .tb-actions,
+    .text-block.selected .tb-actions,
+    .text-block:focus-within .tb-actions{
+    opacity:1;
+    pointer-events:auto;
+    transform: translateY(0);
+    }
+
+    /* keep header compact */
+    .text-block .tb-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:8px;
+    }
+
     .selected{
       outline: 2px solid rgba(52,152,219,0.95);
       box-shadow: 0 0 0 3px rgba(52,152,219,0.15), 0 8px 20px rgba(0,0,0,0.12);
@@ -360,7 +429,12 @@
       cascadeStep: 28,
       legacyScale: 400
     };
+    const TB_COLOR_CLASSES = ["tb-yellow", "tb-pink", "tb-blue", "tb-green"];
 
+    function applyTextBlockColor(el, colorClass) {
+    TB_COLOR_CLASSES.forEach(c => el.classList.remove(c));
+    if (TB_COLOR_CLASSES.includes(colorClass)) el.classList.add(colorClass);
+    }
     const els = {
       categoryList: document.getElementById("categoryList"),
       board: document.getElementById("board"),
@@ -980,11 +1054,11 @@
       });
 
       Object.entries(textLayout).forEach(([tbKey, tb]) => {
-        const el = createTextBlock(tbKey, tb?.text ?? "Type here…");
+        const el = createTextBlock(tbKey, tb?.text ?? "Type here…", tb?.colorClass ?? "");
         el.style.left = `${toPXMaybe(tb?.x, 120)}px`;
         el.style.top  = `${toPXMaybe(tb?.y, 120)}px`;
         els.board.appendChild(el);
-      });
+        });
 
       if (!els.board.querySelector(".card") && !els.board.querySelector(".text-block")) {
         els.board.innerHTML = `<div class="empty">No matching annotation cards could be loaded. (Maybe missing transcript json files.)</div>`;
@@ -1170,33 +1244,72 @@
       return card;
     }
 
-    function createTextBlock(tbKey, initialText) {
-      const block = document.createElement("div");
-      block.className = "text-block";
-      block.dataset.key = tbKey;
+    function createTextBlock(tbKey, initialText, initialColorClass = "") {
+  const block = document.createElement("div");
+  block.className = "text-block";
+  block.dataset.key = tbKey;
 
-      block.innerHTML = `
-        <div class="card-header" style="margin-bottom:8px;">
-          <div style="font-weight:800;font-size:12px;color:#2c3e50;">Label</div>
-          <div class="card-actions" style="opacity:1; pointer-events:auto; transform:none;">
-            <button class="icon-btn" title="Delete" data-action="del">🗑</button>
-          </div>
-        </div>
-        <div class="text" contenteditable="true" spellcheck="false">${escapeHtml(initialText)}</div>
-      `;
+  block.innerHTML = `
+  <div class="tb-header">
+    <div style="font-weight:800;font-size:12px;color:#2c3e50;">Label</div>
 
-      block.addEventListener("pointerdown", (e) => {
+    <!-- hover-only actions -->
+    <div class="tb-actions">
+      <div class="tb-colorbar" data-colorbar title="Text block color">
+        <span class="tb-dot" data-color="" aria-label="Default"></span>
+        <span class="tb-dot" data-color="tb-yellow" aria-label="Yellow"></span>
+        <span class="tb-dot" data-color="tb-pink" aria-label="Pink"></span>
+        <span class="tb-dot" data-color="tb-blue" aria-label="Blue"></span>
+        <span class="tb-dot" data-color="tb-green" aria-label="Green"></span>
+      </div>
+
+      <button class="icon-btn" title="Delete" data-action="del">🗑</button>
+    </div>
+  </div>
+
+  <div class="text" contenteditable="true" spellcheck="false">${escapeHtml(initialText)}</div>
+`;
+
+  // apply initial color from local
+  if (initialColorClass) applyTextBlockColor(block, initialColorClass);
+
+  // mark active dot
+  function syncDots() {
+        const current =
+        TB_COLOR_CLASSES.find(c => block.classList.contains(c)) || "";
+        block.querySelectorAll(".tb-dot").forEach(dot => {
+        dot.classList.toggle("active", dot.dataset.color === current);
+        });
+    }
+    syncDots();
+
+    // clicking dots: change color + save
+    const colorbar = block.querySelector("[data-colorbar]");
+    colorbar?.addEventListener("click", (e) => {
+        const dot = e.target.closest(".tb-dot");
+        if (!dot) return;
+        if (!activeCategory) return;
+
+        const cls = dot.dataset.color || ""; // "" means default
+        applyTextBlockColor(block, cls);
+        syncDots();
+        upsertLocalItem(activeCategory.label, tbKey, { colorClass: cls });
+    });
+
+    // selection + drag (保留你的邏輯，但要排除點色點時觸發拖曳)
+    block.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
 
         const isEditing = e.target?.isContentEditable;
         const isButton = e.target?.closest("button");
-        if (isButton) return;
+        const isOnActions = e.target?.closest(".tb-actions");
+        if (isButton || isOnActions) return;
 
         const key = block.dataset.key;
 
         if (isEditing) {
-          if (e.shiftKey) toggleSelectionKey(key);
-          return;
+        if (e.shiftKey) toggleSelectionKey(key);
+        return;
         }
 
         if (e.shiftKey) toggleSelectionKey(key);
@@ -1204,29 +1317,30 @@
 
         if (selection.keys.size >= 2) startGroupDrag(e, block);
         else startSingleDrag(e, block);
-      });
+    });
 
-      const textEl = block.querySelector(".text");
-      textEl.addEventListener("input", () => {
+    // save text edits
+    const textEl = block.querySelector(".text");
+    textEl.addEventListener("input", () => {
         if (!activeCategory) return;
         upsertLocalItem(activeCategory.label, tbKey, { text: textEl.textContent ?? "" });
-      });
+    });
 
-      block.addEventListener("click", (e) => {
+    // delete
+    block.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
         if (btn.dataset.action === "del") {
-          if (!activeCategory) return;
-          removeLocalItem(activeCategory.label, tbKey);
-          selection.keys.delete(tbKey);
-          applySelectionUI();
-          block.remove();
+        if (!activeCategory) return;
+        removeLocalItem(activeCategory.label, tbKey);
+        selection.keys.delete(tbKey);
+        applySelectionUI();
+        block.remove();
         }
-      });
+    });
 
-      return block;
+    return block;
     }
-
     function clearLocalLayout() {
       if (!activeCategory) return;
       localStorage.removeItem(lsKeyForCategory(activeCategory.label));
